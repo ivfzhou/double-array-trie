@@ -84,6 +84,24 @@ func TestDat_DumpAndRead(t *testing.T) {
 	}
 }
 
+func TestDat_MatchesIndex(t *testing.T) {
+	if d.MatchesIndex("AC") != 0 {
+		t.Error("TestDat_Matches fail")
+	}
+
+	if d.MatchesIndex("BEIZ") != 5 {
+		t.Error("TestDat_Matches fail")
+	}
+
+	if d.MatchesIndex("BEI") != -1 {
+		t.Error("TestDat_Matches fail")
+	}
+
+	if d.MatchesIndex("BEIZA") != -1 {
+		t.Error("TestDat_Matches fail")
+	}
+}
+
 func TestArticle(t *testing.T) {
 	article, err := os.ReadFile("./testdata/article.txt")
 	if err != nil {

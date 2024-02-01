@@ -332,6 +332,44 @@ func (d *dat) Matches(word string) bool {
 	return false
 }
 
+// MatchesIndex 查找 s 在树中索引，不存在返回-1。
+func (d *dat) MatchesIndex(s string) int {
+	state := 1
+	runes := []rune(s)
+	slen := len(runes)
+	for i, r := range runes {
+		code, ok := d.dictionary[r]
+		// 字典无该字符说明不匹配。
+		if !ok {
+			return -1
+		}
+
+		// 不存在的匹配。
+		if code+state-2 >= len(d.check) {
+			return -1
+		}
+
+		// check 不过说明字符不匹配。
+		if d.check[code+state-2] != state {
+			return -1
+		} else {
+			// 更新下次的状态值。
+			state = d.base[code+state-2]
+
+			// 检查是否为终止点。
+			if base := d.base[state-2]; base < 0 {
+				// 是否是最后一个字符
+				if i == slen-1 {
+					return -base - 1
+				} else {
+					return -1
+				}
+			}
+		}
+	}
+	return -1
+}
+
 // MatchPrefix 判断 word 是否匹配词库中任何一个词的前缀。
 func (d *dat) MatchPrefix(word string) bool {
 	if len(word) == 0 {
