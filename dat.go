@@ -31,7 +31,7 @@ var (
 	InitArrayFactor = 2.5
 )
 
-type dat struct {
+type Dat struct {
 	// 数据结构状态数组。
 	base, check []int
 	// 字符与其 code 的映射。
@@ -43,7 +43,7 @@ type dat struct {
 }
 
 // New 构建双数组树。
-func New(keys []string) *dat {
+func New(keys []string) *Dat {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -58,7 +58,7 @@ func New(keys []string) *dat {
 	})
 
 	// 初始化实例。
-	instance := &dat{
+	instance := &Dat{
 		dictionary: make(map[rune]int, len(keys)*2),
 		keys:       copiedKeys,
 		hollowNum:  -1,
@@ -243,7 +243,7 @@ func New(keys []string) *dat {
 }
 
 // ReadFromFile 从备份文件中恢复对象。
-func ReadFromFile(filePath string) (*dat, error) {
+func ReadFromFile(filePath string) (*Dat, error) {
 	file, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -259,7 +259,7 @@ func ReadFromFile(filePath string) (*dat, error) {
 		return nil, err
 	}
 
-	d := &dat{}
+	d := &Dat{}
 	lines := strings.Split(string(file), "\n")
 	bases := strings.Split(lines[0], ",")
 	checks := strings.Split(lines[1], ",")
@@ -296,7 +296,7 @@ func ReadFromFile(filePath string) (*dat, error) {
 }
 
 // Matches 判断 word 是否存在于词库。
-func (d *dat) Matches(word string) bool {
+func (d *Dat) Matches(word string) bool {
 	if len(word) == 0 {
 		return false
 	}
@@ -333,7 +333,7 @@ func (d *dat) Matches(word string) bool {
 }
 
 // MatchesIndex 查找 s 在树中索引，不存在返回-1。
-func (d *dat) MatchesIndex(s string) int {
+func (d *Dat) MatchesIndex(s string) int {
 	state := 1
 	runes := []rune(s)
 	slen := len(runes)
@@ -371,7 +371,7 @@ func (d *dat) MatchesIndex(s string) int {
 }
 
 // MatchPrefix 判断 word 是否匹配词库中任何一个词的前缀。
-func (d *dat) MatchPrefix(word string) bool {
+func (d *Dat) MatchPrefix(word string) bool {
 	if len(word) == 0 {
 		return false
 	}
@@ -403,7 +403,7 @@ func (d *dat) MatchPrefix(word string) bool {
 }
 
 // ObtainPrefixes 返回所有匹配 word 前缀的词。
-func (d *dat) ObtainPrefixes(word string) (res []string) {
+func (d *Dat) ObtainPrefixes(word string) (res []string) {
 	if len(word) == 0 {
 		return nil
 	}
@@ -441,7 +441,7 @@ func (d *dat) ObtainPrefixes(word string) (res []string) {
 }
 
 // Analysis 返回词库中词匹配句子 sentence 中词的词和对应起始位置。
-func (d *dat) Analysis(sentence string) (keys []string, indexes []int) {
+func (d *Dat) Analysis(sentence string) (keys []string, indexes []int) {
 	runes := []rune(sentence)
 	words := make(map[string]bool, len(runes))
 
@@ -487,17 +487,17 @@ Loop:
 }
 
 // Size 数组长度。
-func (d *dat) Size() int {
+func (d *Dat) Size() int {
 	return len(d.base)
 }
 
 // KeySize 词汇个数。
-func (d *dat) KeySize() int {
+func (d *Dat) KeySize() int {
 	return len(d.keys)
 }
 
 // Hollow 返回数组未使用的下标个数。
-func (d *dat) Hollow() int {
+func (d *Dat) Hollow() int {
 	if d.hollowNum < 0 {
 		count := 0
 		for _, v := range d.check {
@@ -511,7 +511,7 @@ func (d *dat) Hollow() int {
 }
 
 // DumpToFile 备份树。
-func (d *dat) DumpToFile(filePath string) error {
+func (d *Dat) DumpToFile(filePath string) error {
 	var (
 		buf   = &bytes.Buffer{}
 		base  = &bytes.Buffer{}
