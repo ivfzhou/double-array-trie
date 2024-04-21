@@ -234,8 +234,10 @@ func New(keys []string) *Dat {
 
 	// 初始化数组长度。
 	resize(int(float64(len(instance.keys)) * math.Max(InitArrayFactor, 0.1)))
+
 	// 构建数。
 	build(fetch(&node{0, 0, len(instance.keys), 0}))
+
 	// 缩减数组长度。
 	resize(size)
 
@@ -297,6 +299,9 @@ func ReadFromFile(filePath string) (*Dat, error) {
 
 // Matches 判断 word 是否存在于词库。
 func (d *Dat) Matches(word string) bool {
+	if d == nil {
+		return false
+	}
 	if len(word) == 0 {
 		return false
 	}
@@ -334,6 +339,9 @@ func (d *Dat) Matches(word string) bool {
 
 // MatchesIndex 查找 s 在树中索引，不存在返回-1。
 func (d *Dat) MatchesIndex(s string) int {
+	if d == nil {
+		return -1
+	}
 	state := 1
 	runes := []rune(s)
 	slen := len(runes)
@@ -372,6 +380,9 @@ func (d *Dat) MatchesIndex(s string) int {
 
 // MatchPrefix 判断 word 是否匹配词库中任何一个词的前缀。
 func (d *Dat) MatchPrefix(word string) bool {
+	if d == nil {
+		return false
+	}
 	if len(word) == 0 {
 		return false
 	}
@@ -404,6 +415,9 @@ func (d *Dat) MatchPrefix(word string) bool {
 
 // ObtainPrefixes 返回所有匹配 word 前缀的词。
 func (d *Dat) ObtainPrefixes(word string) (res []string) {
+	if d == nil {
+		return nil
+	}
 	if len(word) == 0 {
 		return nil
 	}
@@ -442,6 +456,9 @@ func (d *Dat) ObtainPrefixes(word string) (res []string) {
 
 // Analysis 返回词库中词匹配句子 sentence 中词的词和对应起始位置。
 func (d *Dat) Analysis(sentence string) (keys []string, indexes []int) {
+	if d == nil {
+		return
+	}
 	runes := []rune(sentence)
 	words := make(map[string]bool, len(runes))
 
@@ -488,16 +505,25 @@ Loop:
 
 // Size 数组长度。
 func (d *Dat) Size() int {
+	if d == nil {
+		return 0
+	}
 	return len(d.base)
 }
 
 // KeySize 词汇个数。
 func (d *Dat) KeySize() int {
+	if d == nil {
+		return 0
+	}
 	return len(d.keys)
 }
 
 // Hollow 返回数组未使用的下标个数。
 func (d *Dat) Hollow() int {
+	if d == nil {
+		return 0
+	}
 	if d.hollowNum < 0 {
 		count := 0
 		for _, v := range d.check {
@@ -512,6 +538,9 @@ func (d *Dat) Hollow() int {
 
 // DumpToFile 备份树。
 func (d *Dat) DumpToFile(filePath string) error {
+	if d == nil {
+		return nil
+	}
 	var (
 		buf   = &bytes.Buffer{}
 		base  = &bytes.Buffer{}

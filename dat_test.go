@@ -129,3 +129,8 @@ func TestArticle(t *testing.T) {
 	g = dat.New(strings.Split(string(keys), "\n"))
 	t.Log(g.Analysis(string(article)))
 }
+
+func TestNew(t *testing.T) {
+	dd := dat.New([]string{})
+	dd.MatchesIndex("")
+}
