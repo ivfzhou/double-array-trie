@@ -10,4 +10,4 @@
 
 module gitee.com/ivfzhou/double-array-trie
 
-go 1.21
+go 1.18

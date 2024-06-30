@@ -1,21 +1,23 @@
-### 说明
+# 1. 说明
 
 双数组检索树，固定词汇地高速地内存占用少地检索数据结构。
 
 dat 可用于 httprule 的前缀匹配情景，或者其它固定词汇的检索情形。也可用于分词检索，其性能远优于二叉树。
 
-### 使用
+# 2. 使用
+
 ```shell
 go get gitee.com/ivfzhou/double-array-trie@latest
 ```
+
 ```golang
 import dat "gitee.com/ivfzhou/double-array-trie"
 
 // 需要被检索的数据
 data := []string{
-    "/api/user/info",
-    "/api/user/register",
-    "/api/user/login"
+"/api/user/info",
+"/api/user/register",
+"/api/user/login"
 }
 
 // 构建双数组
@@ -38,7 +40,6 @@ d.ObtainPrefixes(path)
 d.Analysis("sentence")
 
 ```
-
 
 #### 状态转移方程：
 
@@ -88,4 +89,6 @@ d.Analysis("sentence")
       4                         G       Z
                                ⁴ ⁵     ⁵ ⁶
 
-联系电邮：ivfzhou@126.com
+# 3. 联系作者
+
+电邮：ivfzhou@126.com
