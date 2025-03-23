@@ -134,3 +134,17 @@ func TestNew(t *testing.T) {
 	dd := dat.New([]string{})
 	dd.MatchesIndex("")
 }
+
+func TestMatch4Use(t *testing.T) {
+	d := dat.New([]string{
+		"/web/app/update",
+		"/api/file/download",
+		"/api/file/initial",
+		"/api/file/uploadPart",
+		"/api/file/mergeParts",
+		"/web/file/initial",
+		"/web/file/uploadPart",
+		"/web/file/mergeParts",
+	})
+	t.Log(d.MatchesIndex("/api/file/initial"))
+}

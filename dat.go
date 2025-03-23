@@ -37,7 +37,7 @@ type Dat struct {
 	// 字符与其 code 的映射。
 	dictionary map[rune]int
 	// 词汇。
-	keys []string
+	Keys []string
 	// 数组未使用个数。
 	hollowNum int
 }
@@ -60,14 +60,14 @@ func New(keys []string) *Dat {
 	// 初始化实例。
 	instance := &Dat{
 		dictionary: make(map[rune]int, len(keys)*2),
-		keys:       copiedKeys,
+		Keys:       copiedKeys,
 		hollowNum:  -1,
 	}
 
 	// 生成字典。
 	charMap := make(map[rune]struct{})
 	charArr := make([]rune, 0)
-	for _, key := range instance.keys {
+	for _, key := range instance.Keys {
 		for _, char := range key {
 			if _, ok := charMap[char]; !ok {
 				charArr = append(charArr, char)
@@ -129,7 +129,7 @@ func New(keys []string) *Dat {
 
 		for code, i := 0, parent.left; i < parent.right; i++ {
 			// 代表树的一个链路。
-			word := []rune(instance.keys[i])
+			word := []rune(instance.Keys[i])
 
 			// 链路已设置完。
 			if parent.depth > len(word) {
@@ -233,10 +233,10 @@ func New(keys []string) *Dat {
 	}
 
 	// 初始化数组长度。
-	resize(int(float64(len(instance.keys)) * math.Max(InitArrayFactor, 0.1)))
+	resize(int(float64(len(instance.Keys)) * math.Max(InitArrayFactor, 0.1)))
 
 	// 构建数。
-	build(fetch(&node{0, 0, len(instance.keys), 0}))
+	build(fetch(&node{0, 0, len(instance.Keys), 0}))
 
 	// 缩减数组长度。
 	resize(size)
@@ -289,9 +289,9 @@ func ReadFromFile(filePath string) (*Dat, error) {
 	dicts = nil
 
 	lines = lines[3:]
-	d.keys = make([]string, len(lines))
+	d.Keys = make([]string, len(lines))
 	for i, v := range lines {
-		d.keys[i] = v
+		d.Keys[i] = v
 	}
 
 	return d, nil
@@ -445,7 +445,7 @@ func (d *Dat) ObtainPrefixes(word string) (res []string) {
 
 			// 检查是否为终止点。
 			if base := d.base[state-2]; base < 0 {
-				res = append(res, d.keys[-base-1])
+				res = append(res, d.Keys[-base-1])
 			}
 
 		}
@@ -487,7 +487,7 @@ Loop:
 
 				// 检查是否为终止点。
 				if base := d.base[state-2]; base < 0 {
-					key := d.keys[-base-1]
+					key := d.Keys[-base-1]
 					if !words[key] {
 						indexes = append(indexes, len([]byte(string(runes[:i]))))
 						keys = append(keys, key)
@@ -516,7 +516,7 @@ func (d *Dat) KeySize() int {
 	if d == nil {
 		return 0
 	}
-	return len(d.keys)
+	return len(d.Keys)
 }
 
 // Hollow 返回数组未使用的下标个数。
@@ -560,10 +560,10 @@ func (d *Dat) DumpToFile(filePath string) error {
 	}
 	_, _ = buf.WriteString("\n")
 
-	for _, v := range d.keys[:len(d.keys)-1] {
+	for _, v := range d.Keys[:len(d.Keys)-1] {
 		_, _ = buf.WriteString(fmt.Sprintf("%s\n", v))
 	}
-	_, _ = buf.WriteString(d.keys[len(d.keys)-1])
+	_, _ = buf.WriteString(d.Keys[len(d.Keys)-1])
 
 	gz := bytes.NewBuffer(nil)
 	writer := gzip.NewWriter(gz)
