@@ -196,7 +196,7 @@ func (d *Dat[T]) HitKeys(prefix string) (hits []string) {
 	}
 
 	depth := 1
-	for i := 0; i < len(runes); i++ {
+	for i := range len(runes) {
 		code, ok := d.dictionary[runes[i]]
 
 		// 字典无该字符说明不匹配。
