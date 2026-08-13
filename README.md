@@ -19,8 +19,6 @@
 go get gitee.com/ivfzhou/double-array-trie@latest
 ```
 
-> 要求 Go >= 1.21（使用泛型）
-
 # 四、快速开始
 
 ## 4.1 基本用法
@@ -83,26 +81,102 @@ err := d.DumpToFile("./dat.dat.gz")
 d, err := dat.ReadFromFile("./dat.dat.gz")
 ```
 
-# 五、API 参考
+# 五、应用场景
 
-| 方法 | 说明 |
-|------|------|
-| `New(keys []string)` | 构建双数组 Trie，自动去重、忽略空串 |
-| `NewWithValues[T](map[string]T)` | 构建带值的 Trie，可通过 `MatchGet` 取值（不支持持久化） |
-| `ReadFromFile(path) (*Dat, error)` | 从 gzip 文件恢复 Trie |
-| `Matches(word string) bool` | 判断 word 是否**精确匹配**词库中的某个词 |
-| `MatchIndex(word string) int` | 返回 word 在排序后词库中的索引，未找到返回 `-1` |
-| `MatchGet(word string) (value, ok)` | 匹配时返回对应的 value（需通过 `NewWithValues` 构建） |
-| `MatchPrefix(word string) bool` | 判断 word 是否为词库中某词的**前缀** |
-| `ObtainPrefixes(word string) []string` | 返回所有是 word 前缀的词（按字典序） |
-| `HitKeys(prefix string) []string` | 返回所有以 prefix 为前缀的词（含 prefix 本身） |
-| `Analysis(sentence string) (keys []string, indexes []int)` | 分词分析，返回 sentence 中出现的词及其起始位置 |
-| `GetKey(index int) string` | 根据索引获取原始词汇 |
-| `DumpToFile(filePath string) error` | 将 Trie 序列化为 gzip 压缩文件 |
-| `Size() int` | 内部数组长度 |
-| `KeySize() int` | 词库中有效词汇数 |
-| `Hollow() int` | 数组中空闲位置数（空间利用率参考） |
-| `Depth() int` | Trie 树的最大深度 |
+`Dat` 的核心能力可以概括为四类：**全词匹配**、**前缀匹配**、**句内分词（`Analysis`）** 以及 **键值存储**。下面结合这几个能力列举典型业务场景。
+
+## 5.1 路由匹配 / API 网关
+
+将 URL 路径作为词库，并绑定对应的处理器，实现 \(O(m)\) 的路由分发；也支持按前缀批量取出某个模块下的所有路由。
+
+```go
+d := dat.NewWithValues(map[string]any{
+    "/api/user/info":    handleUserInfo,
+    "/api/user/login":   handleUserLogin,
+    "/api/order/create": handleOrderCreate,
+})
+
+// 精确匹配路由并分发
+if h, ok := d.MatchGet("/api/user/info"); ok {
+    h.(func())() // 调用对应处理器
+}
+
+// 前缀匹配：一次性取出 /api/user 下的所有路由（如批量导出、权限统计）
+routes := d.HitKeys("/api/user") // ["/api/user/info", "/api/user/login"]
+```
+
+## 5.2 敏感词过滤 / 内容审核
+
+词库为敏感词集合，用 `Analysis` 一次性扫描出正文中所有命中词及其位置，再统一替换或拦截，无需逐词尝试匹配。
+
+```go
+d := dat.New([]string{"违禁词A", "违禁词B", "诈骗"})
+
+text := "这是一段包含诈骗与违禁词A的文本"
+keys, indexes := d.Analysis(text)
+for i, k := range keys {
+    // k 为命中词，indexes[i] 为该词在原文中的字节位置
+    fmt.Println(k, indexes[i])
+}
+```
+
+## 5.3 中文分词 / 词典切分
+
+把词典中的词作为词库，对句子做全量词典匹配，返回所有命中的词及其位置，可在此基础上实现最大匹配、最小切分等分词策略。
+
+```go
+d := dat.New([]string{"自然语言", "语言", "处理", "自然"})
+keys, _ := d.Analysis("自然语言处理") // ["自然", "自然语言", "语言", "处理"]
+```
+
+## 5.4 搜索联想 / 自动补全
+
+词库为候选词集合，输入前缀实时返回所有以该前缀开头的词，用于搜索框联想、命令补全、代码补全等场景。
+
+```go
+d := dat.New([]string{"javascript", "java", "golang", "python"})
+suggestions := d.HitKeys("ja") // ["javascript", "java"]
+```
+
+## 5.5 黑白名单 / 名单匹配
+
+对 IP、域名、手机号等做精确命中或前缀命中（例如域名后缀、网段判断）。
+
+```go
+d := dat.New([]string{"192.168.1.1", "10.0.0.1", "example.com"})
+
+d.Matches("192.168.1.1")    // true
+d.MatchPrefix("192.168")    // true（"192.168" 是 "192.168.1.1" 的前缀）
+```
+
+## 5.6 词典 / 键值映射
+
+把词作为 key，绑定任意类型的 value，实现极速的「词 → 值」映射，适合 ID 映射、拼音→汉字、词语→词性等查询。
+
+```go
+d := dat.NewWithValues(map[string]string{
+    "apple":  "苹果",
+    "banana": "香蕉",
+})
+value, _ := d.MatchGet("apple") // "苹果"
+```
+
+## 5.7 前缀词组提取
+
+`ObtainPrefixes` 返回「输入串的所有词典前缀」，常用于判断一个字符串由哪些前缀词组构成，或提取其全部前缀词组。
+
+```go
+d := dat.New([]string{"ab", "abc", "abg", "jkl"})
+d.ObtainPrefixes("abc") // ["ab", "abc"]
+```
+
+## 5.8 持久化词库
+
+词库构建成本相对较高，可在离线/启动阶段构建一次后 `DumpToFile` 落盘，服务运行时 `ReadFromFile` 直接加载，避免重复构建。
+
+```go
+d, err := dat.ReadFromFile("./dict.dat.gz")
+```
 
 # 六、算法原理
 

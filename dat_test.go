@@ -313,6 +313,82 @@ func TestDat_DumpAndRead(t *testing.T) {
 	}
 }
 
+// BenchmarkDat_MatchGet 基准测试 Dat.MatchGet 的读性能。
+func BenchmarkDat_MatchGet(b *testing.B) {
+	keys := randomKeys()
+	keyToValue := make(map[string]any, len(keys))
+	for _, key := range keys {
+		keyToValue[key] = rand.Intn(math.MaxInt)
+	}
+	d := dat.NewWithValues(keyToValue)
+
+	for i := 0; b.Loop(); i++ {
+		key := keys[i%len(keys)]
+		value, ok := d.MatchGet(key)
+		if !ok {
+			b.Fatalf("key not found: %s", key)
+		}
+		_ = value
+	}
+}
+
+// BenchmarkMap_Read 基准测试原生 map 的读性能，作为对照。
+func BenchmarkMap_Read(b *testing.B) {
+	keys := randomKeys()
+	m := make(map[string]any, len(keys))
+	for _, key := range keys {
+		m[key] = rand.Intn(math.MaxInt)
+	}
+
+	for i := 0; b.Loop(); i++ {
+		key := keys[i%len(keys)]
+		value, ok := m[key]
+		if !ok {
+			b.Fatalf("key not found: %s", key)
+		}
+		_ = value
+	}
+}
+
+// BenchmarkDat_MatchPrefix 基准测试 Dat.MatchPrefix 的匹配性能。
+func BenchmarkDat_MatchPrefix(b *testing.B) {
+	keys := randomKeys()
+	d := dat.New(keys)
+
+	// 生成查询词：取每个 key 的非空前缀，属于前缀匹配场景。
+	words := make([]string, len(keys))
+	for i, key := range keys {
+		runes := []rune(key)
+		words[i] = string(runes[:rand.Intn(len(runes))+1])
+	}
+
+	b.ResetTimer()
+	for i := 0; b.Loop(); i++ {
+		word := words[i%len(words)]
+		_ = d.MatchPrefix(word)
+	}
+}
+
+// BenchmarkStrings_HasPrefix 基准测试 strings.HasPrefix 的匹配性能，作为对照。
+// MatchPrefix(word) 等价于「词库中存在以 word 为前缀的词」，
+// 因此这里用 strings.HasPrefix 遍历词库实现相同语义，保证对比公平。
+func BenchmarkStrings_HasPrefix(b *testing.B) {
+	keys := randomKeys()
+
+	words := make([]string, len(keys))
+	for i, key := range keys {
+		runes := []rune(key)
+		words[i] = string(runes[:rand.Intn(len(runes))+1])
+	}
+
+	for i := 0; b.Loop(); i++ {
+		word := words[i%len(words)]
+		_ = slices.ContainsFunc(keys, func(key string) bool {
+			return strings.HasPrefix(key, word)
+		})
+	}
+}
+
 func randomKeys() []string {
 	length := rand.Intn(maximumKeySize) + 1
 	keys := make([]string, length)
