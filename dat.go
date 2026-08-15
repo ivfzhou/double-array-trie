@@ -97,63 +97,76 @@ func ReadFromFile(filePath string) (*Dat[any], error) {
 	if len(lines) != 4 {
 		return nil, errors.New("invalid file format")
 	}
-	bases := strings.Split(lines[0], ",")
-	checks := strings.Split(lines[1], ",")
-	dicts := strings.Split(lines[2], ",")
-	keys := strings.Split(lines[3], ";")
 
-	// 处理 base。
-	d.base = make([]int, len(bases))
-	for i, v := range bases {
-		d.base[i], err = strconv.Atoi(v)
-		if err != nil {
-			return nil, err
+	// 解析以 sep 分隔的整数列表，空字符串返回空列表。
+	parseInts := func(s, sep string) ([]int, error) {
+		if s == "" {
+			return nil, nil
 		}
+		parts := strings.Split(s, sep)
+		out := make([]int, len(parts))
+		for i, p := range parts {
+			n, err := strconv.Atoi(p)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = n
+		}
+		return out, nil
 	}
-	bases = nil
 
-	// 处理 check。
-	d.check = make([]int, len(checks))
-	for i, v := range checks {
-		d.check[i], err = strconv.Atoi(v)
-		if err != nil {
-			return nil, err
-		}
+	// 处理 base、check。
+	if d.base, err = parseInts(lines[0], ","); err != nil {
+		return nil, err
 	}
-	checks = nil
+	if d.check, err = parseInts(lines[1], ","); err != nil {
+		return nil, err
+	}
 
 	// 处理字典。
-	d.dictionary = make(map[rune]int, len(dicts))
-	for _, v := range dicts {
-		pair := strings.Split(v, "=")
-		if len(pair) != 2 {
-			return nil, errors.New("invalid dictionary format")
+	d.dictionary = make(map[rune]int)
+	if lines[2] != "" {
+		for v := range strings.SplitSeq(lines[2], ",") {
+			pair := strings.Split(v, "=")
+			if len(pair) != 2 {
+				return nil, errors.New("invalid dictionary format")
+			}
+			char, err := strconv.Atoi(pair[0])
+			if err != nil {
+				return nil, err
+			}
+			code, err := strconv.Atoi(pair[1])
+			if err != nil {
+				return nil, err
+			}
+			d.dictionary[rune(char)] = code
 		}
-		char, err2 := strconv.Atoi(pair[0])
-		if err2 != nil {
-			return nil, err2
-		}
-		code, err2 := strconv.Atoi(pair[1])
-		if err2 != nil {
-			return nil, err2
-		}
-		d.dictionary[rune(char)] = code
 	}
-	dicts = nil
 
 	// 处理词汇。
-	d.keys = make([]string, len(keys))
-	for i, v := range keys {
-		runesString := strings.Split(v, ",")
-		runes := make([]rune, len(runesString))
-		for j, char := range runesString {
-			r, err2 := strconv.Atoi(char)
-			if err2 != nil {
-				return nil, err2
+	if lines[3] != "" {
+		keys := strings.Split(lines[3], ";")
+		d.keys = make([]string, len(keys))
+		for i, v := range keys {
+			runesString := strings.Split(v, ",")
+			runes := make([]rune, len(runesString))
+			for j, char := range runesString {
+				r, err := strconv.Atoi(char)
+				if err != nil {
+					return nil, err
+				}
+				runes[j] = rune(r)
 			}
-			runes[j] = rune(r)
+			d.keys[i] = string(runes)
 		}
-		d.keys[i] = string(runes)
+	}
+
+	// 恢复构建时记录的辅助字段。
+	d.maximumCodeValue = len(d.dictionary)
+	for _, key := range d.keys {
+		if n := len([]rune(key)); n > d.depth {
+			d.depth = n
+		}
 	}
 
 	return d, nil
@@ -345,10 +358,10 @@ func (d *Dat[T]) ObtainPrefixes(word string) (result []string) {
 // MatchGet 判断 word 是否在词库中，返回词对应的 value。
 func (d *Dat[T]) MatchGet(word string) (value any, ok bool) {
 	index := d.MatchIndex(word)
-	if index >= 0 {
-		return d.values[index], true
+	if index < 0 || index >= len(d.values) {
+		return
 	}
-	return
+	return d.values[index], true
 }
 
 // Matches 判断 word 是否存在于词库中。
@@ -462,12 +475,14 @@ func (d *Dat[T]) DumpToFile(filePath string) error {
 		base  = &bytes.Buffer{}
 		check = &bytes.Buffer{}
 	)
-	for i := 0; i < len(d.check)-1; i++ {
-		_, _ = fmt.Fprintf(base, "%d,", d.base[i])
-		_, _ = fmt.Fprintf(check, "%d,", d.check[i])
+	for i := 0; i < len(d.check); i++ {
+		if i > 0 {
+			_ = base.WriteByte(',')
+			_ = check.WriteByte(',')
+		}
+		_, _ = fmt.Fprintf(base, "%d", d.base[i])
+		_, _ = fmt.Fprintf(check, "%d", d.check[i])
 	}
-	_, _ = fmt.Fprintf(base, "%d", d.base[len(d.check)-1])
-	_, _ = fmt.Fprintf(check, "%d", d.check[len(d.check)-1])
 	_, _ = fmt.Fprint(buf, base.String()+"\n"+check.String()+"\n")
 	base, check = nil, nil
 
@@ -549,14 +564,14 @@ func newInstance[T any](keys []string) *Dat[T] {
 		copiedKeys = append(copiedKeys, v)
 	}
 	keyMap = nil
-	if len(keys) == 0 {
-		return &Dat[T]{}
-	}
 
 	// 裁剪数组。
 	newKeys := make([]string, len(copiedKeys))
 	copy(newKeys, copiedKeys)
 	copiedKeys = nil
+	if len(newKeys) == 0 {
+		return &Dat[T]{}
+	}
 
 	// 词汇排序。
 	slices.Sort(newKeys)

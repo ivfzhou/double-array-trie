@@ -97,3 +97,11 @@ func ExampleDat_MatchIndex() {
 	// Output:
 	// true
 }
+
+func ExampleDat_Depth() {
+	d := dat.New([]string{"abc", "def", "jkl"})
+	fmt.Println(d.Depth())
+
+	// Output:
+	// 3
+}

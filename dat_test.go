@@ -313,6 +313,235 @@ func TestDat_DumpAndRead(t *testing.T) {
 	}
 }
 
+func TestNew_EmptyAndFiltered(t *testing.T) {
+	// 空输入。
+	if d := dat.New(nil); d.KeySize() != 0 || d.Size() != 0 || d.Depth() != 0 {
+		t.Errorf("empty input should produce empty trie")
+	}
+	// 全部为空串，不应 panic。
+	if d := dat.New([]string{"", "", ""}); d.KeySize() != 0 || d.Size() != 0 {
+		t.Errorf("all-empty keys should produce empty trie")
+	}
+	// 去重。
+	d := dat.New([]string{"abc", "abc", "abc"})
+	if d.KeySize() != 1 {
+		t.Errorf("duplicate keys should be removed, got %d", d.KeySize())
+	}
+	if !d.Matches("abc") {
+		t.Errorf("abc should match")
+	}
+	// 过滤空串并保留有效 key。
+	d = dat.New([]string{"", "abc", "", "def", "abc"})
+	if d.KeySize() != 2 {
+		t.Errorf("expected 2 keys, got %d", d.KeySize())
+	}
+	if !d.Matches("abc") || !d.Matches("def") {
+		t.Errorf("valid keys should match")
+	}
+	if d.Matches("") {
+		t.Errorf("empty string should not match")
+	}
+}
+
+func TestDat_EmptyTrie(t *testing.T) {
+	d := dat.New(nil)
+	if d.Size() != 0 || d.KeySize() != 0 || d.Depth() != 0 || d.Hollow() != 0 {
+		t.Errorf("empty trie metadata mismatch")
+	}
+	if d.Matches("a") || d.Matches("") {
+		t.Errorf("empty trie should not match")
+	}
+	if d.MatchPrefix("a") {
+		t.Errorf("empty trie should not match prefix")
+	}
+	if d.MatchIndex("a") != -1 {
+		t.Errorf("empty trie should not match index")
+	}
+	if hits := d.HitKeys("a"); len(hits) != 0 {
+		t.Errorf("empty trie should have no hits")
+	}
+	if got := d.ObtainPrefixes("a"); len(got) != 0 {
+		t.Errorf("empty trie should have no prefixes")
+	}
+	keys, indexes := d.Analysis("abc")
+	if len(keys) != 0 || len(indexes) != 0 {
+		t.Errorf("empty trie analysis should be empty")
+	}
+}
+
+func TestDat_Unicode(t *testing.T) {
+	keys := []string{"中", "中国", "中国人", "中文", "英文"}
+	slices.Sort(keys)
+	d := dat.New(keys)
+
+	for i, key := range keys {
+		if !d.Matches(key) {
+			t.Errorf("unmatch key: %s", key)
+		}
+		if index := d.MatchIndex(key); index != i {
+			t.Errorf("unmatch key index: %s", key)
+		}
+	}
+
+	if hits := d.HitKeys("中"); !slices.Equal(hits, []string{"中", "中国", "中国人", "中文"}) {
+		t.Errorf("HitKeys(中) = %v", hits)
+	}
+	if got := d.ObtainPrefixes("中国人"); !slices.Equal(got, []string{"中", "中国", "中国人"}) {
+		t.Errorf("ObtainPrefixes(中国人) = %v", got)
+	}
+	if got := d.ObtainPrefixes("英文"); !slices.Equal(got, []string{"英文"}) {
+		t.Errorf("ObtainPrefixes(英文) = %v", got)
+	}
+	if !d.MatchPrefix("中") || !d.MatchPrefix("中国") || !d.MatchPrefix("英文") {
+		t.Errorf("should match prefix")
+	}
+	if d.MatchPrefix("中文的") {
+		t.Errorf("should not match prefix")
+	}
+
+	hitKeys, indexes := d.Analysis("我爱中国人和中文")
+	if len(hitKeys) != len(indexes) {
+		t.Fatalf("hit keys and indexes length mismatch")
+	}
+	for i, k := range hitKeys {
+		if word := "我爱中国人和中文"[indexes[i] : indexes[i]+len(k)]; word != k {
+			t.Errorf("word mismatch: %s at %d", k, indexes[i])
+		}
+	}
+}
+
+func TestDat_SingleCharAndDedup(t *testing.T) {
+	d := dat.New([]string{"a", "b", "c", "a"})
+	if d.KeySize() != 3 {
+		t.Errorf("expected 3 keys, got %d", d.KeySize())
+	}
+	for i, key := range []string{"a", "b", "c"} {
+		if !d.Matches(key) {
+			t.Errorf("unmatch key: %s", key)
+		}
+		if index := d.MatchIndex(key); index != i {
+			t.Errorf("unmatch key index: %s", key)
+		}
+	}
+	if got := d.HitKeys("a"); !slices.Equal(got, []string{"a"}) {
+		t.Errorf("HitKeys(a) = %v", got)
+	}
+}
+
+func TestDat_AnalysisOverlapping(t *testing.T) {
+	d := dat.New([]string{"ab", "abc", "bc"})
+	keys, indexes := d.Analysis("abc")
+	wantKeys := []string{"ab", "abc", "bc"}
+	wantIndexes := []int{0, 0, 1}
+	if !slices.Equal(keys, wantKeys) {
+		t.Errorf("Analysis keys = %v, want %v", keys, wantKeys)
+	}
+	if !slices.Equal(indexes, wantIndexes) {
+		t.Errorf("Analysis indexes = %v, want %v", indexes, wantIndexes)
+	}
+}
+
+func TestDat_HitKeys_Edge(t *testing.T) {
+	d := dat.New([]string{"abc", "def", "jkl"})
+	if hits := d.HitKeys(""); len(hits) != 0 {
+		t.Errorf("empty prefix should have no hits, got %v", hits)
+	}
+	if hits := d.HitKeys("abc"); !slices.Equal(hits, []string{"abc"}) {
+		t.Errorf("HitKeys(abc) = %v", hits)
+	}
+	if hits := d.HitKeys("xyz"); len(hits) != 0 {
+		t.Errorf("unmatched prefix should have no hits, got %v", hits)
+	}
+
+	d2 := dat.New([]string{"a", "ab", "abc"})
+	if hits := d2.HitKeys("a"); !slices.Equal(hits, []string{"a", "ab", "abc"}) {
+		t.Errorf("HitKeys(a) = %v", hits)
+	}
+}
+
+func TestDat_ObtainPrefixes_NoMatch(t *testing.T) {
+	d := dat.New([]string{"abc"})
+	if got := d.ObtainPrefixes("xyz"); len(got) != 0 {
+		t.Errorf("should have no prefixes, got %v", got)
+	}
+}
+
+func TestDat_MatchGet_NoValues(t *testing.T) {
+	d := dat.New([]string{"abc"})
+	if value, ok := d.MatchGet("abc"); ok || value != nil {
+		t.Errorf("value-less trie should not return value, got %v %v", value, ok)
+	}
+	if value, ok := d.MatchGet("none"); ok || value != nil {
+		t.Errorf("unmatched word should not return value, got %v %v", value, ok)
+	}
+}
+
+func TestDat_NewWithValues_EmptyMap(t *testing.T) {
+	d := dat.NewWithValues(map[string]int{})
+	if d.KeySize() != 0 {
+		t.Errorf("empty map should produce empty trie, got %d keys", d.KeySize())
+	}
+	if value, ok := d.MatchGet("a"); ok || value != nil {
+		t.Errorf("empty trie should not return value, got %v %v", value, ok)
+	}
+}
+
+func TestDat_DumpRead_RestoresMetadata(t *testing.T) {
+	keys := []string{"abc", "def", "abdi", "jkl"}
+	d := dat.New(keys)
+
+	temporaryFilePath := filepath.Join(os.TempDir(), randomReadableString(32)+".dat.gz")
+	if err := d.DumpToFile(temporaryFilePath); err != nil {
+		t.Fatalf("failed to dump dat: %v", err)
+	}
+	defer os.Remove(temporaryFilePath)
+
+	r, err := dat.ReadFromFile(temporaryFilePath)
+	if err != nil {
+		t.Fatalf("failed to read dat: %v", err)
+	}
+	if r.Depth() != d.Depth() {
+		t.Errorf("depth mismatch: got %d want %d", r.Depth(), d.Depth())
+	}
+	if r.Size() != d.Size() {
+		t.Errorf("size mismatch: got %d want %d", r.Size(), d.Size())
+	}
+	if r.KeySize() != d.KeySize() {
+		t.Errorf("key size mismatch: got %d want %d", r.KeySize(), d.KeySize())
+	}
+	if hits := r.HitKeys("ab"); !slices.Equal(hits, []string{"abc", "abdi"}) {
+		t.Errorf("HitKeys(ab) after read = %v", hits)
+	}
+	for _, key := range keys {
+		if !r.Matches(key) || !r.MatchPrefix(key) {
+			t.Errorf("unmatch key after read: %s", key)
+		}
+		if r.MatchIndex(key) < 0 {
+			t.Errorf("index mismatch after read: %s", key)
+		}
+	}
+}
+
+func TestDat_DumpRead_Empty(t *testing.T) {
+	d := dat.New(nil)
+	temporaryFilePath := filepath.Join(os.TempDir(), randomReadableString(32)+".dat.gz")
+	if err := d.DumpToFile(temporaryFilePath); err != nil {
+		t.Fatalf("failed to dump empty dat: %v", err)
+	}
+	defer os.Remove(temporaryFilePath)
+
+	r, err := dat.ReadFromFile(temporaryFilePath)
+	if err != nil {
+		t.Fatalf("failed to read empty dat: %v", err)
+	}
+	if r.KeySize() != 0 || r.Size() != 0 || r.Depth() != 0 {
+		t.Errorf("empty trie metadata mismatch: keys=%d size=%d depth=%d", r.KeySize(), r.Size(), r.Depth())
+	}
+	if hits := r.HitKeys("a"); len(hits) != 0 {
+		t.Errorf("empty trie should have no hits, got %v", hits)
+	}
+}
+
 // BenchmarkDat_MatchGet 基准测试 Dat.MatchGet 的读性能。
 func BenchmarkDat_MatchGet(b *testing.B) {
 	keys := randomKeys()
