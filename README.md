@@ -13,15 +13,13 @@
 - **Unicode 安全** — 基于 `rune` 操作，原生支持中文等多字节字符集
 - **零依赖** — 仅使用 Go 标准库
 
-# 三、安装
+# 三、快速开始
 
 ```shell
 go get gitee.com/ivfzhou/double-array-trie@latest
 ```
 
-# 四、快速开始
-
-## 4.1 基本用法
+## 3.1 基本用法
 
 ```go
 import dat "gitee.com/ivfzhou/double-array-trie"
@@ -56,7 +54,7 @@ keys, indexes := d.Analysis("some /api/user/login text")
 prefixes := d.ObtainPrefixes("/api/user/login")
 ```
 
-## 4.2 键值存储
+## 3.2 键值存储
 
 ```go
 d := dat.NewWithValues(map[string]any{
@@ -71,7 +69,7 @@ if ok {
 }
 ```
 
-## 4.3 持久化
+## 3.3 持久化
 
 ```go
 // 序列化到文件
@@ -81,11 +79,11 @@ err := d.DumpToFile("./dat.dat.gz")
 d, err := dat.ReadFromFile("./dat.dat.gz")
 ```
 
-# 五、应用场景
+# 四、应用场景
 
 `Dat` 的核心能力可以概括为四类：**全词匹配**、**前缀匹配**、**句内分词（`Analysis`）** 以及 **键值存储**。下面结合这几个能力列举典型业务场景。
 
-## 5.1 路由匹配 / API 网关
+## 4.1 路由匹配 / API 网关
 
 将 URL 路径作为词库，并绑定对应的处理器，实现 \(O(m)\) 的路由分发；也支持按前缀批量取出某个模块下的所有路由。
 
@@ -105,7 +103,7 @@ if h, ok := d.MatchGet("/api/user/info"); ok {
 routes := d.HitKeys("/api/user") // ["/api/user/info", "/api/user/login"]
 ```
 
-## 5.2 敏感词过滤 / 内容审核
+## 4.2 敏感词过滤 / 内容审核
 
 词库为敏感词集合，用 `Analysis` 一次性扫描出正文中所有命中词及其位置，再统一替换或拦截，无需逐词尝试匹配。
 
@@ -120,7 +118,7 @@ for i, k := range keys {
 }
 ```
 
-## 5.3 中文分词 / 词典切分
+## 4.3 中文分词 / 词典切分
 
 把词典中的词作为词库，对句子做全量词典匹配，返回所有命中的词及其位置，可在此基础上实现最大匹配、最小切分等分词策略。
 
@@ -129,7 +127,7 @@ d := dat.New([]string{"自然语言", "语言", "处理", "自然"})
 keys, _ := d.Analysis("自然语言处理") // ["自然", "自然语言", "语言", "处理"]
 ```
 
-## 5.4 搜索联想 / 自动补全
+## 4.4 搜索联想 / 自动补全
 
 词库为候选词集合，输入前缀实时返回所有以该前缀开头的词，用于搜索框联想、命令补全、代码补全等场景。
 
@@ -138,7 +136,7 @@ d := dat.New([]string{"javascript", "java", "golang", "python"})
 suggestions := d.HitKeys("ja") // ["javascript", "java"]
 ```
 
-## 5.5 黑白名单 / 名单匹配
+## 4.5 黑白名单 / 名单匹配
 
 对 IP、域名、手机号等做精确命中或前缀命中（例如域名后缀、网段判断）。
 
@@ -149,7 +147,7 @@ d.Matches("192.168.1.1")    // true
 d.MatchPrefix("192.168")    // true（"192.168" 是 "192.168.1.1" 的前缀）
 ```
 
-## 5.6 词典 / 键值映射
+## 4.6 词典 / 键值映射
 
 把词作为 key，绑定任意类型的 value，实现极速的「词 → 值」映射，适合 ID 映射、拼音→汉字、词语→词性等查询。
 
@@ -161,7 +159,7 @@ d := dat.NewWithValues(map[string]string{
 value, _ := d.MatchGet("apple") // "苹果"
 ```
 
-## 5.7 前缀词组提取
+## 4.7 前缀词组提取
 
 `ObtainPrefixes` 返回「输入串的所有词典前缀」，常用于判断一个字符串由哪些前缀词组构成，或提取其全部前缀词组。
 
@@ -170,7 +168,7 @@ d := dat.New([]string{"ab", "abc", "abg", "jkl"})
 d.ObtainPrefixes("abc") // ["ab", "abc"]
 ```
 
-## 5.8 持久化词库
+## 4.8 持久化词库
 
 词库构建成本相对较高，可在离线/启动阶段构建一次后 `DumpToFile` 落盘，服务运行时 `ReadFromFile` 直接加载，避免重复构建。
 
@@ -178,7 +176,7 @@ d.ObtainPrefixes("abc") // ["ab", "abc"]
 d, err := dat.ReadFromFile("./dict.dat.gz")
 ```
 
-# 六、算法原理
+# 五、算法原理
 
 双数组 Trie 用两个一维数组 `base[]` 和 `check[]` 表示 Trie 树结构：
 
@@ -197,8 +195,6 @@ d, err := dat.ReadFromFile("./dict.dat.gz")
     code  → 字符编码值（字符在字典中的序号）
     state → 状态值（从 1 开始）
 ```
-
-# 七、示例
 
 给定已排序的词汇表和字符编码映射：
 
@@ -241,10 +237,3 @@ depth
   4                         G       Z
                            ⁴ ⁵     ⁵ ⁶
 ```
-
-# 八、配置项
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `MinExpansiveFactor` | `1.2` | 数组扩容最小系数。同层子节点编码跨度大时应调大 |
-| `InitArrayFactor` | `2.5` | 初始数组长度相对于词汇数的系数 |
